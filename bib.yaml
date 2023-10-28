@@ -4,6 +4,7 @@
   references:
     - c7292376b4
     - a130d21b60
+    - 607394b8d3
 - title: The Mythical Man Month
   author: Fred Brooks
   id: c7292376b4
@@ -18,3 +19,6 @@
 - title: Snow Crash
   author: Neal Stephenson
   id: c40f3502b6
+- title: Good Strategy Bad Strategy
+  author: Richard Rumelt
+  id: 607394b8d3
