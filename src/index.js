@@ -18,6 +18,16 @@ function graph() {
     layout: { name: 'breadthfirst' },
     style: [
       {
+        selector: 'edge',
+        style: {
+          'curve-style': 'bezier',
+          'line-color': 'blue',
+          'target-arrow-color': 'blue',
+          'target-arrow-shape': 'triangle',
+          'arrow-scale': 2
+        }
+      },
+      {
         selector: 'node',
         style: {
           label: n => n.data('title') == null ? 'no title' : n.data('title')
