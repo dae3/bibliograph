@@ -1,8 +1,20 @@
 import './main.css';
-import bib from './bib.json';
+import data from './bib.json';
 import cytoscape from 'cytoscape';
 
-function graph() {
+async function init() {
+  const loading = document.getElementById('loading')
+  const response = await fetch(data)
+  if (response.ok) {
+    const data = await response.json()
+    loading.hidden = true
+    graph(data, document.getElementById('graph'))
+  } else {
+     loading.innerHTML = `<p>Unable to load data. Got status "${response.status} ${response.statusText.trimEnd()}" attempting to fetch bib.json.</p>`
+  }
+}
+
+function graph(bib, div) {
   // raw data shape is [ {id,author,title,references[]} ]
   const nodes = bib.map(d => ({ group: 'nodes', data: d }))
   const edges = bib
@@ -13,7 +25,7 @@ function graph() {
     )
   console.log(edges)
   const graph = cytoscape({
-    container: document.getElementById("graph"),
+    container: div,
     elements: nodes.concat(edges),
     layout: { name: 'breadthfirst' },
     style: [
@@ -36,4 +48,4 @@ function graph() {
     ]
   })
 }
-window.addEventListener('load', graph)
+window.addEventListener('load', init)
