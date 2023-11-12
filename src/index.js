@@ -1,21 +1,21 @@
 import './main.css';
-import data from './bib.json';
+import datasource from './bib.json';
 import cytoscape from 'cytoscape';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import Editor from './Editor.js';
 
 const loading = document.getElementById('loading')
-const response = await fetch(data)
+const response = await fetch(datasource)
 if (response.ok) {
   const data = await response.json()
   loading.hidden = true
   graph(data, document.getElementById('graph'))
+  createRoot(document.getElementById('editor')).render(<Editor data={data}/>)
 } else {
   loading.innerHTML = `<p>Unable to load data. Got status "${response.status} ${response.statusText.trimEnd()}" attempting to fetch bib.json.</p>`
 }
 
-createRoot(document.getElementById('editor')).render(<Editor />)
 
 function graph(bib, div) {
   // raw data shape is [ {id,author,title,references[]} ]
