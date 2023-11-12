@@ -24,7 +24,7 @@ module.exports = {
       { test: /\..json$/, use: { loader: 'json-loader' } },
       { test: /\.css$/i, use: [ 'style-loader','css-loader' ] },
       { test: /bib.json$/, type: 'asset/resource' },
-      { test: /\.m?js/, exclude: [/bib.json$/, /node_modules/], use: { loader: 'babel-loader', options: { presets:  ['@babel/preset-react']}}}
+      { test: /\.m?js$/, exclude: /node_modules/, use: { loader: 'babel-loader', options: { presets:  ['@babel/preset-react']}}}
     ]
   }
 };
