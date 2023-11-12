@@ -2,7 +2,6 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
-  mode: 'development',
   devServer: {
     static: './dist',
   },
@@ -24,7 +23,8 @@ module.exports = {
     rules: [
       { test: /\..json$/, use: { loader: 'json-loader' } },
       { test: /\.css$/i, use: [ 'style-loader','css-loader' ] },
-      { test: /bib.json$/, type: 'asset/resource' }
+      { test: /bib.json$/, type: 'asset/resource' },
+      { test: /\.m?js/, exclude: [/bib.json$/, /node_modules/], use: { loader: 'babel-loader', options: { presets:  ['@babel/preset-react']}}}
     ]
   }
 };
