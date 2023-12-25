@@ -2,31 +2,42 @@ package main
 
 import (
 	"bibliograph/api/ent"
+	"encoding/json"
+	"fmt"
 	"net/http"
-
-	"github.com/gin-gonic/gin"
 )
 
-func (app *App) book_get(ctx *gin.Context) {
-	book, err := app.db.Book.Get(ctx.Request.Context(), ctx.GetInt(ParamBookId))
+func (app *App) book_get(w http.ResponseWriter, r *http.Request) {
+
+	bookid, err := GetIntParam(r, "id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	book, err := app.db.Book.Get(r.Context(), bookid)
 	if ent.IsNotFound(err) {
-		ctx.Status(http.StatusNotFound)
+		w.WriteHeader(http.StatusNotFound)
 	} else if err != nil {
-		ctx.Status(http.StatusInternalServerError)
-		ctx.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "%s\n", err.Error())
 	} else {
-		ctx.JSON(http.StatusOK, ApiBookFromBook(book))
+		fmt.Printf("%+v", book)
+		w.WriteHeader(http.StatusOK)
+		j := json.NewEncoder(w)
+		j.Encode(ApiBookFromBook(book))
 	}
 }
 
-func (app *App) books_get(ctx *gin.Context) {
-	if books, err := app.db.Book.Query().WithReferences().All(ctx.Request.Context()); err != nil {
-		ctx.Status(http.StatusInternalServerError)
+func (app *App) books_get(w http.ResponseWriter, r *http.Request) {
+	if books, err := app.db.Book.Query().WithReferences().All(r.Context()); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 	} else {
 		apibooks := make([]APIBook, len(books))
 		for k, v := range books {
 			apibooks[k] = ApiBookFromBook(v)
 		}
-		ctx.JSON(http.StatusOK, apibooks)
+		w.WriteHeader(http.StatusOK)
+		j := json.NewEncoder(w)
+		j.Encode(apibooks)
 	}
 }

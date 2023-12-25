@@ -3,48 +3,58 @@ package main
 import (
 	"bibliograph/api/ent"
 	"bibliograph/api/ent/book"
+	"encoding/json"
+	"io"
 	"net/http"
-
-	"github.com/gin-gonic/gin"
 )
 
-func (app *App) ref_post(ctx *gin.Context) {
-	var body struct {
+func (app *App) ref_post(w http.ResponseWriter, r *http.Request) {
+	body := make([]byte, r.ContentLength)
+	var refs struct {
 		Refs []int `json:"refs"`
 	}
-
-	if err := ctx.BindJSON(&body); err != nil {
-		ctx.String(http.StatusBadRequest, err.Error())
+	nbytes, err := r.Body.Read(body)
+	if nbytes < int(r.ContentLength) || (err != nil && err != io.EOF) {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	source, err := app.db.Book.Query().WithReferences().Where(book.IDEQ(ctx.GetInt(ParamBookId))).Only(ctx.Request.Context())
+	err = json.Unmarshal(body, &refs)
+	if err != nil || len(refs.Refs) == 0 {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	bookid, err := GetIntParam(r, "id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	source, err := app.db.Book.Query().WithReferences().Where(book.IDEQ(bookid)).Only(r.Context())
 	if ent.IsNotFound(err) {
-		ctx.Status(http.StatusNotFound)
+		http.Error(w, "Book id not found", http.StatusNotFound)
 		return
 	} else if err != nil {
-		ctx.Error(err)
-		ctx.Status(http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	} else {
-		for _, refid := range body.Refs {
-			_, err := app.db.Book.Get(ctx.Request.Context(), refid)
+		for _, refid := range refs.Refs {
+			_, err := app.db.Book.Get(r.Context(), refid)
 			if ent.IsNotFound(err) {
-				ctx.Status(http.StatusUnprocessableEntity)
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 				return
 			} else if err != nil {
-				ctx.Error(err)
-				ctx.Status(http.StatusInternalServerError)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
-		source, err = source.Update().AddReferenceIDs(body.Refs...).Save(ctx.Request.Context())
+		source, err = source.Update().AddReferenceIDs(refs.Refs...).Save(r.Context())
 		if err != nil {
-			ctx.Error(err)
-			ctx.Status(http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		} else {
-			ctx.JSON(http.StatusOK, ApiBookFromBook(source))
+			json.NewEncoder(w).Encode(ApiBookFromBook(source))
 		}
 	}
 }

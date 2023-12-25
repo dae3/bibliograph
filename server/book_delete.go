@@ -4,47 +4,48 @@ import (
 	"bibliograph/api/ent"
 	"bibliograph/api/ent/book"
 	"net/http"
-	"strconv"
-
-	"github.com/gin-gonic/gin"
 )
 
-func (app *App) book_delete(ctx *gin.Context) {
-	c, err := app.db.Book.Delete().Where(book.IDEQ(ctx.GetInt(ParamBookId))).Exec(ctx.Request.Context())
+func (app *App) book_delete(w http.ResponseWriter, r *http.Request) {
+	bookid, err := GetIntParam(r, "id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+	c, err := app.db.Book.Delete().Where(book.IDEQ(bookid)).Exec(r.Context())
 	if c == 0 {
-		ctx.Status(http.StatusNotFound)
+		http.Error(w, "Book not found", http.StatusNotFound)
 	} else if err != nil {
-		ctx.Status(http.StatusInternalServerError)
-		ctx.Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	} else {
-		ctx.Status(http.StatusOK)
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
-func (app *App) ref_delete(ctx *gin.Context) {
-	refid, err := strconv.ParseInt(ctx.Param("refid"), 0, 0)
+func (app *App) ref_delete(w http.ResponseWriter, r *http.Request) {
+	bookid, err := GetIntParam(r, "id")
 	if err != nil {
-		ctx.Status(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	refid, err := GetIntParam(r, "refid")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	book, err := app.db.Book.Get(ctx.Request.Context(), ctx.GetInt(ParamBookId))
+	book, err := app.db.Book.Get(r.Context(), bookid)
 	if ent.IsNotFound(err) {
-		ctx.Status(http.StatusNotFound)
+		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		ctx.Status(http.StatusInternalServerError)
-		ctx.Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	err = book.Update().RemoveReferenceIDs(int(refid)).Exec(ctx.Request.Context())
+	err = book.Update().RemoveReferenceIDs(int(refid)).Exec(r.Context())
 	if ent.IsNotFound(err) {
-		ctx.Status(http.StatusNotFound)
+		http.NotFound(w, r)
 	} else if err != nil {
-		ctx.Status(http.StatusInternalServerError)
-		ctx.Error(err)
-	} else {
-		ctx.Status(http.StatusOK)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

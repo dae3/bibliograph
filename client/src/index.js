@@ -16,5 +16,6 @@ createRoot(document.getElementById('app')).render(
     <QueryClientProvider client={queryClient}>
       <App apibase="http://localhost:5555/api/v1" />
     </QueryClientProvider>
+    <a href="http://localhost:5555/auth/login">Login</a>
   </>
 )

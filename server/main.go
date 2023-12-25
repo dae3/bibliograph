@@ -7,13 +7,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
-	oidcauth "github.com/TJM/gin-gonic-oidcauth"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
-	"github.com/gin-gonic/gin"
-	cors "github.com/rs/cors/wrapper/gin"
-
+	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -35,41 +32,41 @@ func main() {
 	defer client.Close()
 
 	app := &App{client, log.Default()}
-	g := gin.Default()
+	r := mux.NewRouter()
 
+	authnz, err := NewAuth(context.Background(), "http://127.0.0.1:5556/dex", "example-app", "ZXhhbXBsZS1hcHAtc2VjcmV0", "http://localhost:5555/auth/callback", "http://localhost:8080")
+	if err != nil {
+		panic(fmt.Sprintf("Can't configure auth: %s", err.Error()))
+	}
+	auth := r.PathPrefix("/auth").Subrouter()
+	auth.HandleFunc("/login", authnz.LoginHandler)
+	auth.HandleFunc("/callback", authnz.CallbackHandler)
+
+	api := r.PathPrefix("/api/v1").Subrouter()
 	if corsenv := os.Getenv("DEV_CORS"); corsenv != "" {
 		app.log.Printf("Using %s as CORS origin host\n", corsenv)
-		g.Use(cors.New(cors.Options{
+		cors := &CORSMiddleWare{
 			AllowedOrigins: []string{corsenv},
 			AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodDelete},
-		}))
+		}
+		api.Use(cors.Handler)
+	}
+	api.Use(VerifyContentTypeMiddleware)
+	api.HandleFunc("/books", app.books_get).Methods(http.MethodGet)
+	api.HandleFunc("/books/{id}", app.book_get).Methods(http.MethodGet)
+	api.Handle("/books", authnz.AuthorizerMiddleware(http.HandlerFunc(app.book_post))).Methods(http.MethodPost, http.MethodOptions)
+	api.Handle("/books/{id}/refs", authnz.AuthorizerMiddleware(http.HandlerFunc(app.ref_post))).Methods(http.MethodPost, http.MethodOptions)
+	api.Handle("/books/{id}", authnz.AuthorizerMiddleware(http.HandlerFunc(app.book_delete))).Methods(http.MethodDelete, http.MethodOptions)
+	api.Handle("/books/{id}/refs/{refid}", authnz.AuthorizerMiddleware(http.HandlerFunc(app.ref_delete))).Methods(http.MethodDelete, http.MethodOptions)
+
+	r.PathPrefix("/app/").Handler(http.StripPrefix("/app/", http.FileServer(http.Dir("client"))))
+
+	srv := &http.Server{
+		Handler:      handlers.RecoveryHandler()(handlers.LoggingHandler(os.Stdout, r)),
+		Addr:         "127.0.0.1:5555",
+		WriteTimeout: 30 * time.Second,
+		ReadTimeout:  30 * time.Second,
 	}
 
-	store := cookie.NewStore([]byte("secret"))
-	g.Use(sessions.Sessions("mysession", store))
-	auth, err := oidcauth.GetOidcAuth(oidcauth.ExampleConfigDex())
-	if err != nil {
-		panic(fmt.Sprintf("Auth setup failed: %s\n", err))
-	}
-	g.GET("/login", auth.Login)
-	g.GET("/callback", auth.AuthCallback)
-	g.GET("/logout", auth.Logout)
-
-	api := g.Group("/api/v1")
-	api.GET("/books", app.books_get)
-	api.GET("/books/:id", bookid_param, app.book_get)
-	// api.POST("/books", auth.AuthRequired(), app.book_post)
-	api.POST("/books", app.book_post)
-	api.POST("/books/:id/refs", bookid_param, app.ref_post)
-	api.DELETE("/books/:id", bookid_param, app.book_delete)
-	api.DELETE("/books/:id/refs/:refid", bookid_param, app.ref_delete)
-
-	g.Static("/app", "client")
-
-	g.GET("/authtest", auth.AuthRequired(), func(ctx *gin.Context) {
-		login := ctx.GetString(oidcauth.AuthUserKey)
-		ctx.String(http.StatusOK, "Hi "+login)
-	})
-
-	g.Run("localhost:5555")
+	log.Fatal(srv.ListenAndServe())
 }

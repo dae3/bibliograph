@@ -1,7 +1,7 @@
 import React from 'react';
 import { useState, useRef } from 'react';
 
-export default function Editor({ books, deleteBook, addBook, addRef, delRef }) {
+export default function Editor({ books, deleteBook, addBook, addRef, delRef, isLoggedIn }) {
   const withrefs = books.map(book => enrichReferences(books, book))
   const newauthor = useRef(null)
   const newtitle = useRef(null)
@@ -16,18 +16,25 @@ export default function Editor({ books, deleteBook, addBook, addRef, delRef }) {
     }
   }
 
-  function addRefControl(bookid) {
+  function addRefControl(book) {
+    // not self or existing ref
+    const currentrefids = book.references.map(r => r.id)
+    const availrefs = books
+      .filter((b) => b.id != book.id)
+      .filter((b) => !currentrefids.includes(b.id))
+
     return(
       <>
         <label htmlFor="addref">New reference</label>
         <select name="addref" id="addref" ref={newref}>
-          {books.filter(book => book.id != bookid).map(book => <option value={book.id}><BookDisplay book={book} /></option>)}
+          {availrefs.map(b => <option value={b.id}><BookDisplay book={b} /></option>)}
         </select>
         <input type="submit" value="add" onClick={() => {
-          addRef({ sourceid: bookid, refid: parseInt(newref.current.value)})
-          addRefToggle(bookid)
+          addRef({ sourceid: book.id, refid: parseInt(newref.current.value)})
+          addRefToggle(book.id)
         }}
         />
+        <input type="button" value="cancel" onClick={() => addRefToggle(book.id)} />
       </>
     )
   }
@@ -39,7 +46,7 @@ export default function Editor({ books, deleteBook, addBook, addRef, delRef }) {
             <>
               <Book book={book} delRef={delRef} />
               <span className="book" onClick={() => {deleteBook(book.id)}}> X </span>
-              {addingRef.active && addingRef.bookid == book.id ? <span>{addRefControl(book.id)}</span> : <span onClick={() => addRefToggle(book.id)}>R</span>}
+              {addingRef.active && addingRef.bookid == book.id ? <span>{addRefControl(book)}</span> : <span onClick={() => addRefToggle(book.id)}>R</span>}
             </>
         )}
       </ul>
@@ -47,7 +54,7 @@ export default function Editor({ books, deleteBook, addBook, addRef, delRef }) {
       <input type="text" id="newtitle" name="newtitle" ref={newtitle} />
       <label htmlFor="newauthor">New author</label>
       <input type="text" id="newauthor" name="newauthor" ref={newauthor} />
-      <input type="submit" value="Add" onClick={() => {addBook({author: newauthor.current.value, title: newtitle.current.value})}} />
+      <input type="submit" value="Add" disabled={!isLoggedIn} onClick={() => {addBook({author: newauthor.current.value, title: newtitle.current.value})}} />
     </>
   )
 }
