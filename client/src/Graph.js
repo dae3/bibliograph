@@ -2,7 +2,7 @@ import cytoscape from 'cytoscape';
 import React from 'react';
 import { useEffect, useState, useRef } from 'react';
 
-export default function Graph({ books }) {
+export default function Graph({ books, nodeSelected }) {
   const graphdiv = useRef(null)
 
   const nodes = books.map(d => ({ group: 'nodes', data: d }))
@@ -18,13 +18,13 @@ export default function Graph({ books }) {
       container: graphdiv.current,
       elements: nodes.concat(edges),
       layout: { name: 'breadthfirst' },
+      // userZoomingEnabled: false,
+      // userPanningEnabled: false,
       style: [
         {
           selector: 'edge',
           style: {
             'curve-style': 'bezier',
-            'line-color': 'blue',
-            'target-arrow-color': 'blue',
             'target-arrow-shape': 'triangle',
             'arrow-scale': 2
           }
@@ -37,7 +37,9 @@ export default function Graph({ books }) {
         }
       ]
     })
+
+    graph.on('click', 'node', (e) => { nodeSelected(e.target.id()) })
   }, [ graphdiv, books ])
 
-  return(<div id="graph" ref={graphdiv} />)
+  return(<div id="graph" className="min-h-lvh border" ref={graphdiv} />)
 }

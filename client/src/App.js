@@ -1,17 +1,28 @@
 import React from 'react';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query'
-import Editor  from './Editor.js'
-import Graph  from './Graph.js'
-
-const fetchOpts = { credentials: "include" }
+import Editor from './Editor.js'
+import Graph from './Graph.js'
 
 export default function App({apibase}) {
+  const [ selectedNode, setSelectedNode ] = useState(null)
   const queryClient = useQueryClient()
+  const csrfToken = useRef(null)
+
+  const req = function(url, method = 'GET', body = null, headers = {}) {
+    if (csrfToken.current == null) {
+      fetch(`${apibase}/token`, { credentials: 'include' }).then(r => r.text()).then(t => csrfToken.current = t)
+    }
+    if (method != 'GET') {
+      headers = Object.assign(headers, {'X-CSRF-Token': csrfToken.current})
+    }
+    return new Request(url, { method: method, body: body, credentials: "include", headers: new Headers(headers) })
+  }
+
   const { isPending, isError, data, error } = useQuery({
     queryKey: ['books'],
     queryFn: async () => {
-      const r = await fetch(`${apibase}/books`, fetchOpts)
+      const r = await fetch(req(`${apibase}/books`))
       if (r.ok) {
         return r.json()
       } else {
@@ -19,35 +30,44 @@ export default function App({apibase}) {
       }
     }
   })
-  const deleteBook = useMutation({
-    mutationFn: (id) => fetch(`${apibase}/books/${id}`, Object.assign({ method: 'DELETE' }, fetchOpts)),
-    onSuccess: () => { queryClient.invalidateQueries(['books']) }
+
+  const delBook = useMutation({
+    mutationFn: (id) => fetch(req(`${apibase}/books/${id}`, 'DELETE')),
+    onSuccess: () => { queryClient.invalidateQueries(['books']); setSelectedNode(null) }
   })
 
   const addBook = useMutation({
-    mutationFn: ({author, title}) => fetch(`${apibase}/books`,
-      Object.assign({
-        method: 'POST',
-        headers: new Headers({'Content-Type':'application/json'}),
-        body: JSON.stringify({ 'author': author, 'title': title })
-      }, fetchOpts)
-    ),
-    onSuccess: () => { queryClient.invalidateQueries(['books']) }
+    mutationFn: ({author, title}) => fetch(req(
+      `${apibase}/books`,
+      'POST',
+      JSON.stringify({ 'author': author, 'title': title }),
+      { 'Content-Type': 'application/json' }
+    )),
+    onSuccess: () => { queryClient.invalidateQueries(['books']); setSelectedNode(null) }
+  })
+
+  const updateBook = useMutation({
+    mutationFn: ({id, author, title}) => fetch(req(
+      `${apibase}/books/${id}`,
+      'POST',
+      JSON.stringify({ 'author': author, 'title': title }),
+      {'Content-Type':'application/json'},
+    )),
+    onSuccess: () => { queryClient.invalidateQueries(['books']); setSelectedNode(null) }
   })
 
   const addRef = useMutation({
-    mutationFn: ({ sourceid, refid }) => fetch(`${apibase}/books/${sourceid}/refs`,
-      Object.assign({
-        method: 'POST',
-        headers: new Headers({'Content-Type':'application/json'}),
-        body: JSON.stringify({ refs: data.find(b => b.id == sourceid).references.concat(refid) })
-      }, fetchOpts)
-    ),
+    mutationFn: ({ sourceid, refid }) => fetch(req(
+      `${apibase}/books/${sourceid}/refs`,
+      'POST',
+      JSON.stringify({ refs: data.find(b => b.id == sourceid).references.concat(refid) }),
+      {'Content-Type':'application/json'},
+    )),
     onSuccess: () => { queryClient.invalidateQueries(['books']) }
   })
 
   const delRef = useMutation({
-    mutationFn: ({ sourceid, refid }) => fetch(`${apibase}/books/${sourceid}/refs/${refid}`, Object.assign({ method: 'DELETE'}, fetchOpts)),
+    mutationFn: ({ sourceid, refid }) => fetch(req(`${apibase}/books/${sourceid}/refs/${refid}`, 'DELETE')),
     onSuccess: () => { queryClient.invalidateQueries(['books']) }
   })
 
@@ -61,8 +81,16 @@ export default function App({apibase}) {
 
   return(
     <>
-      <Graph books={data} />
-      <Editor books={data} deleteBook={deleteBook.mutate} addBook={addBook.mutate} addRef={addRef.mutate} delRef={delRef.mutate}/>
+      <header className="bg-blue-500">
+        <h1 className="text-lg">Bibliograph</h1>
+        <nav>
+          <ul className="space-x-2">
+            <li className="inline-block"><a href="http://localhost:5555/auth/login">Login</a></li>
+          </ul>
+        </nav>
+      </header>
+      <Editor books={data} key={selectedNode ? selectedNode : ''} bookid={selectedNode} addBook={addBook.mutate} updateBook={updateBook.mutate} deleteBook={delBook.mutate} addRef={addRef.mutate} delRef={delRef.mutate} removeSelection={() => setSelectedNode(null)}/>
+      <Graph books={data} nodeSelected={setSelectedNode} />
     </>
   )
 }

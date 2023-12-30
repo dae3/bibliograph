@@ -1,35 +1,71 @@
 package main
 
 import (
+	"bibliograph/api/ent"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
 )
 
 func (app *App) book_post(w http.ResponseWriter, r *http.Request) {
+	apibook, err := parsePost(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	id, err := GetIntParam(r, "id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	book, err := app.db.Book.Get(r.Context(), id)
+	if ent.IsNotFound(err) {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	book, err = book.Update().SetAuthor(apibook.Author).SetTitle(apibook.Title).Save(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	} else {
+		json.NewEncoder(w).Encode(ApiBookFromBook(book))
+	}
+	return
+}
+
+func (app *App) book_post_new(w http.ResponseWriter, r *http.Request) {
+	apibook, err := parsePost(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	book, err := app.db.Book.Create().SetAuthor(apibook.Author).SetTitle(apibook.Title).Save(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	} else {
+		json.NewEncoder(w).Encode(ApiBookFromBook(book))
+	}
+}
+
+func parsePost(r *http.Request) (apibook *APIBook, err error) {
 	body := make([]byte, r.ContentLength, r.ContentLength)
-	nbytes, err := r.Body.Read(body)
-	if nbytes < int(r.ContentLength) || (err != nil && err != io.EOF) {
-		http.Error(w, fmt.Sprintf("Error reading body: %s", err.Error()), http.StatusInternalServerError)
+	_, err = r.Body.Read(body)
+	if err != nil && err != io.EOF {
 		return
 	}
 
 	// accept liberally but validate the real fields
-	newapibook := new(APIBook)
-	if err := json.Unmarshal(body, newapibook); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	apibook = new(APIBook)
+	err = json.Unmarshal(body, apibook)
+	if err != nil {
 		return
 	}
-	if newapibook.Author == "" || newapibook.Title == "" {
-		http.Error(w, "Missing required fields", http.StatusBadRequest)
-		return
+	if apibook.Author == "" || apibook.Title == "" {
+		err = errors.New("Missing required fields")
 	}
 
-	newbook, err := app.db.Book.Create().SetAuthor(newapibook.Author).SetTitle(newapibook.Title).Save(r.Context())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	} else {
-		json.NewEncoder(w).Encode(ApiBookFromBook(newbook))
-	}
+	return
 }

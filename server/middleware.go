@@ -1,21 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 )
-
-/*
-
-import (
-	"context"
-	"net/http"
-	"strconv"
-
-	"github.com/gorilla/mux"
-)
-*/
 
 const (
 	ParamBookId = "bookid"
@@ -24,8 +12,8 @@ const (
 func VerifyContentTypeMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
-			ct := r.Header["Content-Type"][0] // anyone sending multiple content-type headers gets what they deserve
-			if ct == "application/json" {
+			ct, ok := r.Header["Content-Type"]
+			if ok && ct[0] == "application/json" { // anyone sending multiple content-type headers gets what they deserve
 				next.ServeHTTP(w, r)
 			} else {
 				http.Error(w, "", http.StatusUnsupportedMediaType)
@@ -52,13 +40,12 @@ func (m *CORSMiddleWare) Handler(next http.Handler) http.Handler {
 				if v == origin {
 					break
 				}
-				fmt.Printf("CORS says no")
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Methods", strings.Join(m.AllowedMethods, ", "))
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			w.Header().Set("Access-Control-Allow-Headers", strings.Join([]string{"Content-Type", "X-CSRF-Token"}, ", "))
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 			if r.Method == http.MethodOptions {
