@@ -108,13 +108,18 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 	s.Values["name"] = claims.Email
-	err = s.Save(r, w)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+	if claims.Email == "deverett@gmail.com" {
+		err = s.Save(r, w)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		} else {
+			http.Redirect(w, r, a.PostAuthPath, http.StatusTemporaryRedirect)
+		}
+		return
 	} else {
-		http.Redirect(w, r, a.PostAuthPath, http.StatusTemporaryRedirect)
+		http.Error(w, "", http.StatusForbidden)
 	}
-	return
 }
 
 func (a *Auth) StatusHandler(w http.ResponseWriter, r *http.Request) {
