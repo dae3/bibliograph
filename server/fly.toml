@@ -16,7 +16,7 @@ primary_region = "syd"
   DATABASE_CONNECTIONSTRING = "file:/db/bib.db?cache=shared&_fk=1"
   OIDC_DISCOVERY = "https://accounts.google.com"
   OIDC_CLIENTID = "883894501608-oi28lipiih2enov57rf4ro3qk4s7nhmp.apps.googleusercontent.com"
-  OIDC_REDIRECTURL = "http://bibliograph.fly.dev/auth/callback"
+  OIDC_REDIRECTURL = "https://bibliograph.fly.dev/auth/callback"
 
 [http_service]
   internal_port = 8080
