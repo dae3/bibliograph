@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
+	"net/url"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gorilla/sessions"
@@ -16,8 +17,8 @@ const (
 )
 
 type Auth struct {
-	RedirectUrl  string
-	PostAuthUrl  string
+	RedirectPath string
+	PostAuthPath string
 	SessionStore *sessions.CookieStore
 
 	IdP          *oidc.Provider
@@ -25,27 +26,22 @@ type Auth struct {
 	Verifier     *oidc.IDTokenVerifier
 }
 
-func NewAuth(ctx context.Context, IdPUrl string, ClientId string, ClientSecret string, CallbackUrl string, PostAuthUrl string) (auth *Auth, err error) {
-	idp, err := oidc.NewProvider(ctx, IdPUrl)
+func NewAuth(ctx context.Context, IdPUrl *url.URL, ClientId string, ClientSecret string, CallbackUrl *url.URL, PostAuthPath string, SessionStoreKey string) (auth *Auth, err error) {
+	idp, err := oidc.NewProvider(ctx, IdPUrl.String())
 	if err != nil {
 		return
 	}
 
-	cskey := os.Getenv("SESSION_STORE_KEY")
-	if cskey == "" {
-		cskey = "s00pers3cr3t"
-	}
-
 	auth = &Auth{
-		RedirectUrl:  CallbackUrl,
-		PostAuthUrl:  PostAuthUrl,
-		SessionStore: sessions.NewCookieStore([]byte(cskey)),
+		RedirectPath: CallbackUrl.String(),
+		PostAuthPath: PostAuthPath,
+		SessionStore: sessions.NewCookieStore([]byte(SessionStoreKey)),
 		IdP:          idp,
 		OAuth2Config: &oauth2.Config{
 			Endpoint:     idp.Endpoint(),
 			ClientID:     ClientId,
 			ClientSecret: ClientSecret,
-			RedirectURL:  CallbackUrl,
+			RedirectURL:  CallbackUrl.String(),
 			Scopes:       []string{oidc.ScopeOpenID, "email", "profile"},
 		},
 		Verifier: idp.Verifier(&oidc.Config{ClientID: ClientId}),
@@ -60,6 +56,18 @@ func NewAuth(ctx context.Context, IdPUrl string, ClientId string, ClientSecret s
 
 func (a *Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.OAuth2Config.AuthCodeURL("notveryrandom"), http.StatusTemporaryRedirect)
+}
+
+func (a *Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	s, err := a.SessionStore.Get(r, SessionCookie)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Can't get session store: %s", err.Error()), http.StatusInternalServerError)
+	}
+
+	s.Options.MaxAge = -1 // expire session immediately
+	s.Save(r, w)
+
+	http.Redirect(w, r, a.PostAuthPath, http.StatusTemporaryRedirect)
 }
 
 func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +112,29 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	} else {
-		http.Redirect(w, r, a.PostAuthUrl, http.StatusTemporaryRedirect)
+		http.Redirect(w, r, a.PostAuthPath, http.StatusTemporaryRedirect)
+	}
+	return
+}
+
+func (a *Auth) StatusHandler(w http.ResponseWriter, r *http.Request) {
+	s, err := a.SessionStore.Get(r, SessionCookie)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Can't get session store: %s", err.Error()), http.StatusInternalServerError)
+	}
+
+	var body struct {
+		Email string `json:"email"`
+	}
+
+	email, hasemail := s.Values["name"]
+	if hasemail {
+		body.Email = email.(string)
+		enc := json.NewEncoder(w)
+		w.WriteHeader(http.StatusOK)
+		enc.Encode(body)
+	} else {
+		http.Error(w, "", http.StatusForbidden)
 	}
 	return
 }

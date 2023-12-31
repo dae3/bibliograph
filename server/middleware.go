@@ -5,10 +5,6 @@ import (
 	"strings"
 )
 
-const (
-	ParamBookId = "bookid"
-)
-
 func VerifyContentTypeMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
@@ -57,24 +53,3 @@ func (m *CORSMiddleWare) Handler(next http.Handler) http.Handler {
 		}
 	})
 }
-
-/*
-// bookid_param attempts to parse an integer path parameter named "id".
-// If successful the int value of the parameter is added to the context
-// with the key "bookid", otherwise http.StatusBadRequest is returned
-func GetBookIdParam(r *http.Request) (int, error) {
-	vars := mux.Vars(r)
-	idparam, ok := vars["id"]
-	if !ok {
-		return 0, new error()
-		http.Error(w, "Missing id path parameter", http.StatusBadRequest)
-	} else {
-		id, err := strconv.ParseInt(idparam, 0, 0)
-		if err != nil {
-			http.Error(w, "Can't parse id path parameter", http.StatusBadRequest)
-		} else {
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ParamBookId, id)))
-		}
-	}
-}
-*/

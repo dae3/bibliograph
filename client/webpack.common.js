@@ -13,7 +13,7 @@ module.exports = {
     clean: true,
   },
   plugins: [
-    new HtmlWebpackPlugin({ title: 'Bibliograph' }),
+    new HtmlWebpackPlugin({ title: 'Bibliograph' })
   ],
   module: {
     rules: [

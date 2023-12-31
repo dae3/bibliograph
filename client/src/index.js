@@ -2,19 +2,21 @@ import './main.css';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.js'
-import {
-  QueryClient,
-  QueryClientProvider,
-  useQuery,
-} from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 
 const queryClient = new QueryClient()
+const backend = { // will be substituted by webpack_U
+  base: BASE_URL,
+  api: API_BASE,
+  auth: AUTH_BASE
+}
 
-// graph(data, document.getElementById('graph'))
+console.log(backend)
+
 createRoot(document.getElementById('app')).render(
   <>
     <QueryClientProvider client={queryClient}>
-      <App apibase="http://localhost:5555/api/v1" />
+      <App backend={backend}/>
     </QueryClientProvider>
   </>
 )
