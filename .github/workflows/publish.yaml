@@ -24,3 +24,12 @@ jobs:
     - run: npm run build
       name: Build frontend
       working-directory: client
+    - name: Copy client build
+      run: |
+        mkdir -p server/client-dist
+        cp client/dist/* server/client-dist
+    - name: Setup fly
+      uses: superfly/flyctl-actions/setup-flyctl@master
+    - name: Build and deploy server
+      working-directory: server
+      run: flyctl deploy --remote-only
