@@ -25,7 +25,7 @@ export default function Editor({ loggedIn, books, bookid, deleteBook, addBook, u
             <input className="bg-slate-200 rounded-sm" type="button" value="Cancel" onClick={removeSelection} />
             <select name="addref" id="addref" ref={newref}>{availrefs?.map(b => <option key={b.id} value={b.id}><BookDisplay book={b} /></option>)}</select>
             <input className="bg-slate-200 rounded-sm p-0.5" type="button" value="Add reference" onClick={() => { addRef({ sourceid: book.id, refid: parseInt(newref.current.value)}) }} />
-            <References book={book} />
+            <References book={book} delRef={delRef} />
           </>
           : <input className="bg-slate-200 rounded-sm p-0.5" type="button" value="Add" onClick={() => {addBook({author: author, title: title}); setAuthor(''); setTitle('')}}/>
       }
@@ -33,7 +33,7 @@ export default function Editor({ loggedIn, books, bookid, deleteBook, addBook, u
   )}
 }
 
-function References({ book }) {
+function References({ book, delRef }) {
   return(
     <ul>
       { book.references.map(r =>
