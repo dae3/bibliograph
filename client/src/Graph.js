@@ -39,6 +39,7 @@ export default function Graph({ books, nodeSelected }) {
     })
 
     graph.on('click', 'node', (e) => { nodeSelected(e.target.id()) })
+    graph.on('tap', 'node', (e) => { nodeSelected(e.target.id()) })
   }, [ graphdiv, books ])
 
   return(<div id="graph" className="min-h-lvh border" ref={graphdiv} />)
